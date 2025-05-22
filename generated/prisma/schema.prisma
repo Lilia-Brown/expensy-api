@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+// --- User Model ---
+model User {
+  id           String   @id @default(uuid()) // Unique identifier for each user
+  email        String   @unique // User's unique email address for login
+  passwordHash String // Hashed password (NEVER store plain passwords)
+  username     String? // Optional: User's display name
+  createdAt    DateTime @default(now()) // Timestamp of user creation
+  updatedAt    DateTime @updatedAt // Timestamp of last update
+
+  expenses Expense[] // Relation: A User can have many Expenses
+  budgets  Budget[] // Relation: A User can set many Budgets
+}
+
+// --- Category Model ---
+model Category {
+  id          String   @id @default(uuid()) // Unique identifier for each category
+  name        String   @unique // The name of the category (e.g., "Food", "Transportation"). Must be unique.
+  description String? // Optional: A brief explanation of the category
+  icon        String? // Optional: A string representing an icon (e.g., a Material Icon name, or URL)
+  color       String? // Optional: A hex code for UI coloring (e.g., "#FF0000")
+  isDefault   Boolean  @default(false) // Optional: Boolean indicating if this is a system-provided default category
+  createdAt   DateTime @default(now()) // Timestamp of category creation
+  updatedAt   DateTime @updatedAt // Timestamp of last update
+
+  expenses Expense[] // Relation: A Category can be associated with many Expenses
+}
+
+// --- Expense Model ---
+model Expense {
+  id          String   @id @default(uuid()) // Unique identifier for each expense
+  amount      Float // The monetary value of the expense
+  currency    String? // Optional: e.g., "USD", "EUR"
+  description String? // Optional: A short text description of the expense
+  date        DateTime // The date/time the expense occurred
+  city        String // The city where the expense occurred
+  latitude    Float? // Optional: Precise geographical latitude
+  longitude   Float? // Optional: Precise geographical longitude
+  notes       String? // Optional: Any additional details
+  source      String   @default("manual") // How the expense was added: "manual", "receipt_scan"
+  createdAt   DateTime @default(now()) // Timestamp of record creation in the DB
+  updatedAt   DateTime @updatedAt // Timestamp of last update
+
+  // Stretch Goal Fields:
+  receiptImageUrl   String? // Optional: URL to the stored receipt image
+  rawReceiptText    String? // Optional: Raw text extracted by OCR
+  parsedReceiptData Json? // Optional: Structured JSON data extracted by Gemini (maps to PostgreSQL's JSONB)
+
+  // Relationships:
+  userId String // Foreign key to User
+  user   User   @relation(fields: [userId], references: [id]) // Explicit relation to User model
+
+  categoryId String // Foreign key to Category. Assuming an expense *must* have a category.
+  // If it can be optional, change to `categoryId String?`
+  category   Category @relation(fields: [categoryId], references: [id]) // Explicit relation to Category model
+}
+
+// --- Budget Model ---
+model Budget {
+  id           String    @id @default(uuid()) // Unique identifier for each budget
+  city         String // The specific city this budget applies to
+  budgetAmount Float // The total budget amount for that city
+  currency     String? // Optional: e.g., "USD"
+  startDate    DateTime? // Optional: When the budget period begins
+  endDate      DateTime? // Optional: When the budget period ends
+  createdAt    DateTime  @default(now()) // Timestamp of budget creation
+  updatedAt    DateTime  @updatedAt // Timestamp of last update
+
+  // Relationships:
+  userId String // Foreign key to User
+  user   User   @relation(fields: [userId], references: [id]) // Explicit relation to User model
+
+  // Uniqueness Constraint:
+  // Ensures that a single user can only have one budget per city.
+  @@unique([userId, city])
+}
