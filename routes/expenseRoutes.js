@@ -3,6 +3,47 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = (prisma) => {
+  // GET / - Get all expenses
+  router.get('/', async (req, res) => {
+    try {
+      const expenses = await prisma.expense.findMany({
+        include: {
+          user: true,
+          category: true,
+        },
+      });
+      res.status(200).json(expenses);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+
+      res.status(500).json({ error: 'Failed to fetch expenses.' });
+    }
+  });
+
+  // GET /:id - Get a single expense by ID
+  router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+      const expense = await prisma.expense.findUnique({
+        where: { id: id },
+        include: {
+          user: true,
+          category: true,
+        },
+      });
+
+      if (!expense) {
+        return res.status(404).json({ error: 'Expense not found.' });
+      }
+
+      res.status(200).json(expense);
+    } catch (error) {
+      console.error('Error fetching single expense:', error);
+
+      res.status(500).json({ error: 'Failed to fetch expense.' });
+    }
+  });
 
   // POST /expenses - Create a new expense
   router.post('/', async (req, res) => {
@@ -41,6 +82,6 @@ module.exports = (prisma) => {
       
       res.status(500).json({ error: 'Failed to create expense. Check if userId or categoryId exist.' });
     }
-  })
+  });
   return router;
 }
