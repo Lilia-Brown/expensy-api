@@ -21,6 +21,7 @@ app.get('/', (req, res) => {
 app.use('/users', require('./routes/userRoutes')(prisma));
 app.use('/categories', require('./routes/categoryRoutes')(prisma));
 app.use('/expenses', require('./routes/expenseRoutes')(prisma));
+app.use('/budgets', require('./routes/budgetRoutes')(prisma));
 
 // Start the server
 app.listen(PORT, () => {
