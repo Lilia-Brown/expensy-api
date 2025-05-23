@@ -1,12 +1,17 @@
 const express = require('express');
+const authMiddleware = require('../middleware/authMiddleware');
 
 const router = express.Router();
+router.use(authMiddleware);
 
 module.exports = (prisma) => {
   // GET / - Get all expenses
   router.get('/', async (req, res) => {
+    const userId = req.userId;
+
     try {
       const expenses = await prisma.expense.findMany({
+        where: { userId: userId },
         include: {
           user: true,
           category: true,
@@ -26,7 +31,7 @@ module.exports = (prisma) => {
 
     try {
       const expense = await prisma.expense.findUnique({
-        where: { id: id },
+        where: { id: id, userId: req.userId },
         include: {
           user: true,
           category: true,
@@ -47,7 +52,8 @@ module.exports = (prisma) => {
 
   // POST /expenses - Create a new expense
   router.post('/', async (req, res) => {
-    const { amount, currency, description, date, city, latitude, longitude, notes, source, userId, categoryId } = req.body;
+    const { amount, currency, description, date, city, latitude, longitude, notes, source, categoryId } = req.body;
+    const userId = req.userId;
 
     try {
       if (!amount || !date || !city || !userId || !categoryId) {
@@ -88,11 +94,12 @@ module.exports = (prisma) => {
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
 
-    const { amount, currency, description, date, city, latitude, longitude, notes, source, userId, categoryId } = req.body;
+    const { amount, currency, description, date, city, latitude, longitude, notes, source, categoryId } = req.body;
+    const userId = req.userId
 
     try {
       const existingExpense = await prisma.expense.findUnique({
-        where: { id: id },
+        where: { id: id, userId: userId },
       });
 
       if (!existingExpense) {
@@ -113,7 +120,7 @@ module.exports = (prisma) => {
       if (categoryId !== undefined) updateData.category = { connect: { id: categoryId } }; // Category relation
 
       const updatedExpense = await prisma.expense.update({
-        where: { id: id },
+        where: { id: id, userId: userId },
         data: updateData,
         include: {
           user: true,
@@ -132,10 +139,11 @@ module.exports = (prisma) => {
   // DELETE /:id - Delete an expense by ID
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;
+    const userId = req.userId;
 
     try {
       const existingExpense = await prisma.expense.findUnique({
-        where: { id: id },
+        where: { id: id, userId: userId},
       });
 
       if (!existingExpense) {
@@ -143,7 +151,7 @@ module.exports = (prisma) => {
       }
 
       await prisma.expense.delete({
-        where: { id: id },
+        where: { id: id, userId: userId },
       });
 
       res.status(204).send();
