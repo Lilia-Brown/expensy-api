@@ -5,10 +5,17 @@ const router = express.Router();
 module.exports = (prisma) => {
   // GET / - Get all budgets
   router.get('/', async (req, res) => {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: User ID not found. Please ensure you are logged in.' });
+    }
+
     try {
       const budgets = await prisma.budget.findMany({
-        include: {
-          user: true,
+        where: { userId: userId },
+        orderBy: {
+          startDate: 'desc',
         },
       });
       res.status(200).json(budgets);
@@ -22,17 +29,19 @@ module.exports = (prisma) => {
   // GET /:id - Get a single budget by ID
   router.get('/:id', async (req, res) => {
     const { id } = req.params;
+    const userId = req.userId; // Get userId from the authenticated request
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: User ID not found.' });
+    }
 
     try {
       const budget = await prisma.budget.findUnique({
-        where: { id: id },
-        include: {
-          user: true,
-        },
+        where: { id: id, userId: userId },
       });
 
       if (!budget) {
-        return res.status(404).json({ error: 'Budget not found.' });
+        return res.status(404).json({ error: 'Budget not found or not authorized to view.' });
       }
 
       res.status(200).json(budget);
@@ -45,12 +54,12 @@ module.exports = (prisma) => {
 
   // GET /city/:cityName - Get a budget for a specific city by user
   router.get('/city/:cityName', async (req, res) => {
-    const { cityName } = req.params; // Get the city name from the URL parameter
-    const { userId } = req.query;     // Get the userId from the query parameter
+    const { cityName } = req.params;
+    const userId = req.userId;
 
     try {
       if (!userId) {
-        return res.status(400).json({ error: 'User ID is required as a query parameter (e.g., ?userId=...).' });
+        return res.status(401).json({ error: 'Unauthorized: User ID not found.' });
       }
 
       const budget = await prisma.budget.findUnique({
@@ -60,13 +69,10 @@ module.exports = (prisma) => {
             city: cityName,
           },
         },
-        include: {
-          user: true,
-        },
       });
 
       if (!budget) {
-        return res.status(404).json({ error: `Budget not found for city: ${cityName} and user ID: ${userId}.` });
+        return res.status(404).json({ error: `Budget not found for city: ${cityName} and authenticated user.` });
       }
 
       res.status(200).json(budget);
@@ -79,7 +85,12 @@ module.exports = (prisma) => {
 
   // POST /budgets - Create a new budget
   router.post('/', async (req, res) => {
-    const { id, city, budgetAmount, currency, startDate, endDate, userId } = req.body;
+    const { id, city, budgetAmount, currency, startDate, endDate } = req.body; 
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: User ID not found.' });
+    }
 
     try {
       if (!city || !budgetAmount || !currency || !startDate || !userId) {
@@ -93,12 +104,11 @@ module.exports = (prisma) => {
         data: {
           id,
           city,
-          budgetAmount,
+          budgetAmount: parseFloat(budgetAmount),
           currency,
           startDate: sDate,
           endDate: eDate,
-          // Connect to User via their ID
-          user: { connect: { id: userId } },
+          userId: userId,
         },
       });
 
@@ -113,32 +123,33 @@ module.exports = (prisma) => {
   // PUT /:id - Update an existing budget by ID
   router.put('/:id', async (req, res) => {
     const { id } = req.params;
+    const userId = req.userId;
 
-    const { city, budgetAmount, currency, startDate, endDate, userId } = req.body;
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized: User ID not found.' });
+    }
+
+    const { city, budgetAmount, currency, startDate, endDate } = req.body;
 
     try {
       const existingBudget = await prisma.budget.findUnique({
-        where: { id: id },
+        where: { id: id, userId: userId },
       });
 
       if (!existingBudget) {
-        return res.status(404).json({ error: 'Budget not found.' });
+        return res.status(404).json({ error: 'Budget not found or not authorized to update.' });
       }
 
       const updateData = {};
       if (city !== undefined) updateData.city = city;
-      if (budgetAmount !== undefined) updateData.budgetAmount = budgetAmount;
+      if (budgetAmount !== undefined) updateData.budgetAmount = parseFloat(budgetAmount);
       if (currency !== undefined) updateData.currency = currency;
       if (startDate !== undefined) updateData.startDate = new Date(startDate);
       if (endDate !== undefined) updateData.endDate = new Date(endDate);
-      if (userId !== undefined) updateData.user = { connect: { id: userId } }; // User relation
 
       const updatedBudget = await prisma.budget.update({
         where: { id: id },
         data: updateData,
-        include: {
-          user: true,
-        },
       });
 
       res.status(200).json(updatedBudget);
@@ -152,10 +163,15 @@ module.exports = (prisma) => {
   // DELETE /:id - Delete an budget by ID
   router.delete('/:id', async (req, res) => {
     const { id } = req.params;
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(404).json({ error: 'Budget not found or not authorized to delete.' });
+    }
 
     try {
       const existingBudget = await prisma.budget.findUnique({
-        where: { id: id },
+        where: { id: id, userId: userId },
       });
 
       if (!existingBudget) {
