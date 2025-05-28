@@ -3,6 +3,22 @@ const express = require('express');
 const router = express.Router();
 
 module.exports = (prisma) => {
+  // GET /categories - Fetch all categories
+  router.get('/', async (req, res) => {
+    try {
+      const categories = await prisma.category.findMany({
+        orderBy: {
+          name: 'asc'
+        }
+      });
+      res.status(200).json(categories);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+
+      res.status(500).json({ error: 'Failed to fetch categories.' });
+    }
+  });
+
   // POST /categories - Create a new category
   router.post('/', async (req, res) => {
     const { name, description, icon, color, isDefault } = req.body;
