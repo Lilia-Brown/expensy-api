@@ -23,6 +23,7 @@ model User {
   username     String?   // Optional: User's display name
   createdAt    DateTime  @default(now()) // Timestamp of user creation
   updatedAt    DateTime  @updatedAt // Timestamp of last update
+  userImageUrl String?   // Optional: URL to the user's profile image
 
   expenses     Expense[] // Relation: A User can have many Expenses
   budgets      Budget[]  // Relation: A User can set many Budgets
